@@ -1,0 +1,55 @@
+# PowerMesh — Node Agent Configuration
+# Copy to config/node.yaml and edit for your machine
+
+# Unique node identifier (defaults to hostname if empty)
+# Env override: POWERMESH_NODE_ID
+node_id: ""
+
+# Central collector endpoint — leave empty for local-only mode
+# Env override: POWERMESH_COLLECTOR_URL
+collector_url: ""
+# collector_url: "http://100.64.0.1:8430"
+
+# HMAC shared secret for authenticating with the collector
+# Env override: POWERMESH_AUTH_TOKEN
+auth_token: ""
+
+# ── Hardware specs ──────────────────────────────────────────────────
+# CPU TDP in watts — used for estimation when RAPL is unavailable (Windows)
+# Common values: i5=65, i7=125, i9=150, Ryzen 5=65, Ryzen 7=105, Ryzen 9=170
+cpu_tdp_w: 65
+
+# GPU TDP in watts — used for reference only (nvidia-smi reads actual power draw)
+gpu_tdp_w: 250
+
+# Base system power in watts (motherboard, fans, drives, peripherals)
+# Typical: 25-50W for desktop, 10-20W for mini PC
+base_power_w: 35
+
+# PSU wattage and efficiency rating
+psu_wattage: 650
+psu_rating: "bronze" # bronze | silver | gold | platinum | titanium
+
+# ── Electricity cost ────────────────────────────────────────────────
+cost_per_kwh: 0.12
+currency: "USD"
+
+# ── Collection settings ────────────────────────────────────────────
+# How often to take a reading (seconds)
+collection_interval_s: 60
+
+# How many readings to batch before pushing to collector
+push_batch_size: 10
+
+# ── Smart plug (optional — measures actual wall power) ──────────────
+smart_plug:
+  enabled: false
+  type: "kasa" # kasa | shelly
+  ip: ""
+
+# ── Storage ─────────────────────────────────────────────────────────
+# Env override: POWERMESH_DATA_DIR
+data_dir: "data"
+
+# Env override: POWERMESH_LOG_LEVEL
+log_level: "INFO"

@@ -1,0 +1,45 @@
+# PowerMesh — Collector / Mesh Configuration
+# Central server that receives readings from all agents
+
+# Port for the collector HTTP server
+# Env override: POWERMESH_COLLECTOR_PORT
+port: 8430
+
+# Bind address. Use 127.0.0.1 for local-only, 0.0.0.0 for a trusted mesh.
+# Env override: POWERMESH_HOST
+host: "0.0.0.0"
+
+# ── Authentication ──────────────────────────────────────────────────
+# Map of node_id → shared HMAC secret. Use "*" as a wildcard.
+# Leave empty to disable authentication (local mesh only).
+auth_tokens: {}
+  # "*": "change-me-to-a-strong-secret"
+  # desktop-01: "node-specific-token"
+
+# ── Expected nodes ──────────────────────────────────────────────────
+# Pre-register nodes so the dashboard shows them even before first report
+expected_nodes:
+  # - node_id: "desktop-01"
+  #   hostname: "Main Desktop"
+  #   cpu_tdp_w: 125
+  #   gpu_tdp_w: 350
+  #   cost_per_kwh: 0.12
+  # - node_id: "server-01"
+  #   hostname: "Dev Server"
+
+# ── Aggregation ─────────────────────────────────────────────────────
+# How often to run aggregation (minutes)
+aggregation_interval_m: 60
+
+# How many days of raw readings to keep (aggregates are kept indefinitely)
+retention_days: 30
+
+# Default electricity rate for nodes that don't specify one
+cost_per_kwh_default: 0.12
+
+# ── Storage ─────────────────────────────────────────────────────────
+# Env override: POWERMESH_DATA_DIR
+data_dir: "data"
+
+# Env override: POWERMESH_LOG_LEVEL
+log_level: "INFO"

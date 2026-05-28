@@ -1,0 +1,5 @@
+psutil>=5.9
+requests>=2.31
+pyyaml>=6.0
+# Optional: smart plug support
+# python-kasa>=0.6
