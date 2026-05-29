@@ -34,7 +34,9 @@ DEFAULT_NODE_CONFIG: dict[str, Any] = {
 
 DEFAULT_MESH_CONFIG: dict[str, Any] = {
     "port": 8430,
-    "host": "0.0.0.0",
+    # Loopback by default. To expose on LAN: set host explicitly AND
+    # populate auth_tokens, then start the collector with --public.
+    "host": "127.0.0.1",
     "data_dir": "data",
     "auth_tokens": {},
     "expected_nodes": [],
