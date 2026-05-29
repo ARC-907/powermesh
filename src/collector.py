@@ -25,6 +25,55 @@ from .logging_utils import setup_logging
 
 log = logging.getLogger("powermesh.collector")
 
+# Hostnames treated as loopback for the bind-safety check.
+LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
+class InsecureBindError(RuntimeError):
+    """Raised when the collector is asked to bind a non-loopback address unsafely."""
+
+
+def _is_loopback_bind(host: str) -> bool:
+    """Return True if the configured host is unambiguously loopback."""
+    if not host:
+        return False
+    normalized = host.strip().lower()
+    if normalized in LOOPBACK_HOSTS:
+        return True
+    # IPv4 loopback /8: 127.x.x.x
+    if normalized.startswith("127."):
+        return True
+    return False
+
+
+def _enforce_bind_safety(host: str, auth_tokens: dict[str, Any] | None, public: bool) -> None:
+    """Refuse to start when a non-loopback bind would expose an unauthenticated collector.
+
+    Rules:
+      * Loopback binds (127.x, ::1, localhost) are always allowed.
+      * Non-loopback binds require BOTH an explicit public opt-in AND a
+        non-empty auth_tokens mapping. The opt-in is wired to the --public
+        CLI flag (see main()); callers embedding run_collector() pass public=True.
+      * If either is missing, raise InsecureBindError. The CLI converts this to
+        SystemExit(2); embedding callers (e.g. tests) can catch it directly.
+    """
+    if _is_loopback_bind(host):
+        return
+
+    if not public:
+        raise InsecureBindError(
+            f"ERROR: Non-loopback bind ({host}) requires explicit opt-in.\n"
+            f"See SECURITY.md and README.md \"Public/LAN deployment\" for how to set this up.\n"
+            f"Refusing to start."
+        )
+
+    if not auth_tokens:
+        raise InsecureBindError(
+            f"ERROR: Non-loopback bind ({host}) requires auth_tokens to be configured.\n"
+            f"See SECURITY.md and README.md \"Public/LAN deployment\" for how to set this up.\n"
+            f"Refusing to start."
+        )
+
 class CollectorHandler(BaseHTTPRequestHandler):
     """HTTP request handler for the power collector."""
 
@@ -209,8 +258,13 @@ def run_collector(
     config: dict[str, Any] | None = None,
     app_info: dict[str, Any] | None = None,
     install_signal_handlers: bool = True,
+    public: bool = False,
 ) -> None:
     config = load_mesh_config(config_path=config_path, config=config)
+
+    host = config.get("host", "127.0.0.1")
+    auth_tokens = config.get("auth_tokens") or {}
+    _enforce_bind_safety(host, auth_tokens, public)
 
     data_dir = Path(config["data_dir"])
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -231,7 +285,6 @@ def run_collector(
     api = PowerAPI(db, aggregator, config=config, app_info=app_info)
 
     port = config["port"]
-    host = config.get("host", "0.0.0.0")
     server = CollectorServer((host, port), CollectorHandler)
     server.db = db
     server.config = config
