@@ -117,9 +117,14 @@ class CollectorHandler(BaseHTTPRequestHandler):
         else:
             self._send_json(404, {"error": "not found"})
 
+    # Mutating POST routes that may only be invoked from the loopback interface.
+    # These are dashboard-driven operations; cross-origin invocation from a
+    # malicious page on the same network would otherwise trigger writes.
+    LOOPBACK_ONLY_POST_ROUTES = frozenset({"/api/settings", "/api/refresh"})
+
     def _handle_api_post(self, route: str) -> None:
-        if route == "/api/settings" and not self._is_loopback_client():
-            self._send_json(403, {"error": "settings writes are restricted to localhost"})
+        if route in self.LOOPBACK_ONLY_POST_ROUTES and not self._is_loopback_client():
+            self._send_json(403, {"error": f"{route} is restricted to localhost"})
             return
         handler = self.app_server.api.route_post(route)
         if not handler:
@@ -204,12 +209,36 @@ class CollectorHandler(BaseHTTPRequestHandler):
         log.info("Ingested %d/%d readings from %s", accepted, len(readings), node_id)
         self._send_json(200, {"accepted": accepted, "total": len(readings)})
 
+    def _cors_origin_for_request(self) -> str | None:
+        """Return the value to echo in Access-Control-Allow-Origin, or None.
+
+        Behavior:
+          * If the configured allowlist is empty, return None (no CORS header
+            emitted — same-origin only).
+          * If the request's Origin header is in the allowlist, echo it back.
+          * Otherwise return None.
+
+        Wildcard "*" is honored ONLY if the operator explicitly placed it in
+        the allowlist; the default config does not.
+        """
+        allow = self.app_server.config.get("cors_allow_origins") or []
+        if not allow:
+            return None
+        origin = self.headers.get("Origin", "")
+        if "*" in allow:
+            return "*"
+        if origin and origin in allow:
+            return origin
+        return None
+
     def _send_json(self, status: int, data: Any) -> None:
         body = json.dumps(data, default=str).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Access-Control-Allow-Origin", "*")
+        cors = self._cors_origin_for_request()
+        if cors is not None:
+            self.send_header("Access-Control-Allow-Origin", cors)
         self.end_headers()
         self.wfile.write(body)
 
@@ -232,7 +261,9 @@ class CollectorHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(encoded)))
-        self.send_header("Access-Control-Allow-Origin", "*")
+        cors = self._cors_origin_for_request()
+        if cors is not None:
+            self.send_header("Access-Control-Allow-Origin", cors)
         for key, value in (headers or {}).items():
             self.send_header(key, value)
         self.end_headers()

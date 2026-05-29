@@ -44,6 +44,10 @@ DEFAULT_MESH_CONFIG: dict[str, Any] = {
     "retention_days": 30,
     "cost_per_kwh_default": 0.12,
     "log_level": "INFO",
+    # Explicit allowlist of origins permitted to make cross-origin requests
+    # against the API. Empty list = same-origin only (no Access-Control-Allow-Origin
+    # header emitted). The dashboard is same-origin and does not need CORS.
+    "cors_allow_origins": [],
 }
 
 EnvMap = dict[str, tuple[str, Callable[[str], Any]]]

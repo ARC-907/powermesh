@@ -44,3 +44,11 @@ data_dir: "data"
 
 # Env override: POWERMESH_LOG_LEVEL
 log_level: "INFO"
+
+# ── CORS ────────────────────────────────────────────────────────────
+# Allowlist of origins permitted to make cross-origin API calls.
+# Default is empty (no Access-Control-Allow-Origin header at all) — the
+# dashboard is same-origin and does not need CORS. Add specific origins
+# only if you have a separate front-end on a different host/port.
+cors_allow_origins: []
+  # - "https://dashboard.example.com"
