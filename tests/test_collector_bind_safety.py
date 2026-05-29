@@ -18,6 +18,7 @@ from src.collector import (
     InsecureBindError,
     _enforce_bind_safety,
     _is_loopback_bind,
+    main,
     run_collector,
 )
 
@@ -91,3 +92,29 @@ def test_run_collector_refuses_non_loopback_with_opt_in_but_no_tokens(tmp_path, 
     }
     with pytest.raises(InsecureBindError):
         run_collector(config_path=None, config=inline, public=True)
+
+
+# ---------- main() CLI exit code ------------------------------------------------
+
+def test_main_exits_with_code_2_on_insecure_bind(tmp_path, monkeypatch) -> None:
+    # Write a config that asks for 0.0.0.0 with no tokens, then invoke main()
+    # without --public. main() should SystemExit(2).
+    cfg = tmp_path / "mesh.yaml"
+    cfg.write_text(
+        "host: 0.0.0.0\nport: 18432\nauth_tokens: {}\ndata_dir: '"
+        + str(tmp_path / "data").replace("\\", "/") + "'\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("POWERMESH_DATA_DIR", str(tmp_path / "data"))
+    with pytest.raises(SystemExit) as exc:
+        main([str(cfg)])
+    assert exc.value.code == 2
+
+
+def test_main_help_mentions_public_flag(capsys) -> None:
+    with pytest.raises(SystemExit) as exc:
+        main(["--help"])
+    assert exc.value.code == 0
+    captured = capsys.readouterr()
+    assert "--public" in captured.out
+    assert "auth_tokens" in captured.out

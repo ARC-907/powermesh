@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import hmac
 import json
@@ -325,13 +326,53 @@ def run_collector(
         log.info("Collector stopped")
 
 
-def main() -> None:
-    config_path = "config/mesh.yaml"
-    if len(sys.argv) > 1:
-        config_path = sys.argv[1]
+def _build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="powermesh-collector",
+        description=(
+            "Run the PowerMesh collector. The collector binds to loopback by "
+            "default. To bind a non-loopback address (LAN / Tailscale / public), "
+            "pass --public AND configure non-empty auth_tokens in mesh.yaml. "
+            "Both are required: --public alone with an empty auth_tokens map "
+            "will refuse to start."
+        ),
+    )
+    parser.add_argument(
+        "config",
+        nargs="?",
+        default="config/mesh.yaml",
+        help="Path to mesh.yaml (default: config/mesh.yaml).",
+    )
+    parser.add_argument(
+        "--public",
+        action="store_true",
+        help=(
+            "Explicit opt-in for non-loopback bind. Required (together with a "
+            "populated auth_tokens map) before the collector will bind anything "
+            "other than 127.0.0.1 / ::1 / localhost."
+        ),
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = _build_arg_parser()
+    args = parser.parse_args(argv)
+
+    config_path = args.config
     config = load_mesh_config(config_path=config_path)
     setup_logging("collector", config["data_dir"], config.get("log_level", "INFO"))
-    run_collector(config_path=config_path, app_info={"edition": "Full", "version": "0.1.0"})
+    try:
+        run_collector(
+            config_path=config_path,
+            app_info={"edition": "Full", "version": "0.1.0"},
+            public=args.public,
+        )
+    except InsecureBindError as exc:
+        # Print to stderr in addition to logging so install scripts see the reason.
+        sys.stderr.write(f"{exc}\n")
+        log.error("%s", exc)
+        raise SystemExit(2) from exc
 
 
 if __name__ == "__main__":
